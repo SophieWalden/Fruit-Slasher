@@ -37,14 +37,18 @@ def load_images(path_to_directory):
         for name in filenames:
             if name.endswith('.png'):
                 key = name[:-4]
-                img = pygame.image.load(os.path.join(dirpath, name)).convert_alpha()
+                if key != "Bg":
+                    img = pygame.image.load(os.path.join(dirpath, name)).convert_alpha()
+                else:
+                    img = pygame.image.load(os.path.join(dirpath, name)).convert()
                 images[key] = img
     return images
 
 
-
+#Calculates and draws everything for the fruits
 class Fruit():
     def __init__(self, Image, x=None, y=None, Vx=None, gravity=None, width=200,height=200):
+        """Declares all the starting Variables."""
         self.Image = Image
         self.x = x
         self.y = y
@@ -71,9 +75,11 @@ class Fruit():
  
 
     def draw(self):
+        """Draws the Fruit."""
         gameDisplay.blit(pygame.transform.rotate(pygame.transform.scale(self.Image,(self.width,self.height)),self.angle).convert_alpha(),(self.x,self.y))
 
     def Physics(self):
+        """Calculates the physics and angles of each fruit."""
         self.x += self.Vx
         self.y += self.gravity
         self.gravity += 0.35
@@ -89,6 +95,7 @@ class Fruit():
         self.angle %= 360
 
     def update(self):
+        """Calls every function to update each fruit."""
         self.draw()
         self.Physics()
         #Updating the hitbox
@@ -99,6 +106,7 @@ class Fruit():
 
 class Player():
     def __init__(self):
+        """Declaring a bunch of variables"""
         pos = pygame.mouse.get_pos()
         self.x = pos[0]
         self.y = pos[1]
@@ -113,20 +121,29 @@ class Player():
         self.drag = False
         self.Past = []
 
-    def draw(self):
+    def draw(self, Colors):
+        """Draws your slashy line"""
         pygame.draw.rect(gameDisplay,(0,255,0),(self.x,self.y,self.width,self.height),0)
-        for point in self.Past:
+        #New Version
+        for i in range(len(self.Past)-2):
+            self.Past[i][1] -= 1
+            if self.Past[i][1] >= 1:
+                pygame.draw.line(gameDisplay, Colors[1],(self.Past[i][0]),(self.Past[i+1][0]),self.Past[i][1]+10)
+                pygame.draw.line(gameDisplay, Colors[0],(self.Past[i][0]),(self.Past[i+1][0]),self.Past[i][1])
+        #Old Version
+        '''for point in self.Past:
             point[1] -= 1
             if point[1] >= 0:
-                pygame.draw.rect(gameDisplay,(0,255,0),(point[0][0],point[0][1]-int(point[1]/2),point[2], point[1]),0)
-                pygame.draw.rect(gameDisplay,(0,150,0),(point[0][0],point[0][1]-int(point[1]/2),point[2], point[1]),5)
+                pygame.draw.rect(gameDisplay,Colors[0],(point[0][0],point[0][1]-int(point[1]/2),point[2], point[1]),0)
+                pygame.draw.rect(gameDisplay,Colors[1],(point[0][0],point[0][1]-int(point[1]/2),point[2], point[1]),5)'''
 
-    def update(self):
-        self.draw()
+    def update(self, Colors):
+        """Calls every function to update them"""
+        self.draw(Colors)
         #Updating the lines
         pos = pygame.mouse.get_pos()
         change = pygame.mouse.get_rel()
-        self.Past.insert(0, [pos, (change[1]+10) % 50, abs(change[0])*3])
+        self.Past.insert(0, [pos, (change[1]+10) % 30, (abs(change[0])*3) % 100])
         if len(self.Past) >= 21:
             self.Past.pop(20)
         #Updating the hitbox
@@ -138,6 +155,7 @@ class Player():
         self.rect.right = self.x + self.width
 
 class Explosion():
+    """A Little class that makes an explosion every time you hit a bomb"""
     def __init__(self,x,y):
         self.x = x
         self.y = y
@@ -152,18 +170,22 @@ class Explosion():
         self.y += random.randint(-5,5)
         self.Life -= 1
 
-def game_loop():
+def game_loop(Colors=[(0,255,0),(0,150,0)]):
     game_run = True
     Images = load_images("Images")
-    Choices = ["Grapes", "Orange", "Apple","Lemon"]
+    Choices = ["Grapes", "Orange", "Apple","Lemon", "Strawberry"]
     player = Player()
     Fruits = []
     Lives = 3
     score = 0
     for i in range(random.randint(2,5)):
-        Fruits.append(Fruit(Images[random.choice(Choices)]))
+        choice = random.choice(Choices)
+        if choice == "Strawberry": 
+            Fruits.append(Fruit(Images[choice],500,800,random.randint(-20,20),random.randint(-22,-20),125,125))
+        else:
+            Fruits.append(Fruit(Images[choice]))
     if random.randint(1,4) <= 3:
-        Bombs = [Fruit(Images["Bomb"],500,1000,random.randint(-30,30),-25,100,100)]
+        Bombs = [Fruit(Images["Bomb"], 500,1000,random.randint(-30,30),-25,100,100)]
     else:
         Bombs = []
     SplitFruit = []
@@ -171,7 +193,8 @@ def game_loop():
 
     while game_run == True:
 
-        gameDisplay.fill((210,140,42))
+        #gameDisplay.fill((210,140,42))
+        gameDisplay.blit(pygame.transform.scale(Images["Bg"],(DisplayWidth,DisplayHeight)),(0,0))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -190,10 +213,6 @@ def game_loop():
                 pygame.draw.rect(gameDisplay,(150,0,0),(25+(i*55),10,50,50),5)
         else:
             MainMenu.HomeScreen(score)
-        
-        #Drawing the slashy thingy
-        if player.drag == True:
-            player.update()
 
         #Drawing all the fruit and its sliced counterparts
         stop = False
@@ -215,6 +234,9 @@ def game_loop():
                 elif fruit.Image == Images["Lemon"]:
                     fruit.Image = Images["LemonTop"]
                     Fruits.append(Fruit(Images["LemonBottom"],fruit.x,fruit.y,fruit.Vx*-2,fruit.gravity*1.5))
+                elif fruit.Image == Images["Strawberry"]:
+                    fruit.Image = Images["StrawberryTop"]
+                    Fruits.append(Fruit(Images["StrawberryBottom"],fruit.x,fruit.y,fruit.Vx*-2,fruit.gravity*1.5,125,125))
                 Fruits[-1].split = True
                 score += 10
         for fruit in Bombs:
@@ -233,15 +255,23 @@ def game_loop():
                     Lives -= 1
             Fruits = []
             for i in range(random.randint(2,5)):
-                if random.randint(1,4) <= 3:
-                    Bombs = [Fruit(Images["Bomb"],500,800,random.randint(-40,40),-20,100,100)]
+                choice = random.choice(Choices)
+                if choice == "Strawberry": 
+                    Fruits.append(Fruit(Images[choice],500,800,random.randint(-20,20),random.randint(-22,-20),125,125))
                 else:
-                    Bombs = []
-                Fruits.append(Fruit(Images[random.choice(Choices)]))
+                    Fruits.append(Fruit(Images[choice]))
+            if random.randint(1,4) <= 3:
+                Bombs = [Fruit(Images["Bomb"],500,800,random.randint(-40,40),-20,100,100)]
+            else:
+                Bombs = []
         for explosion in Explosions:
             explosion.update(Images)
             if explosion.Life <= 0:
                 Explosions.pop(Explosions.index(explosion))
+
+        #Drawing the slashy thingy
+        if player.drag == True:
+            player.update(Colors)
                 
 
 
